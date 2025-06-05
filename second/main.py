@@ -1,71 +1,43 @@
 import cv2
-import mediapipe as mp
-import pyautogui
-import math
-import subprocess
+from fer import FER  # Make sure 'fer' is installed: pip install fer
+
+# Load pre-trained face detector and expression recognizer
+face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+# You can download a pre-trained emotion model or use a placeholder for demo
+# For demo, we'll just show "Face Detected" as expression
 
 cap = cv2.VideoCapture(0)
-mp_hands = mp.solutions.hands
-hands = mp_hands.Hands()
-mp_draw = mp.solutions.drawing_utils
-
-screen_width, screen_height = pyautogui.size()
-click_down = False
-vscode_opened = False
-
-def fingers_up(hand_landmarks):
-    tips = [8, 12, 16, 20]
-    fingers = []
-    for tip in tips:
-        if hand_landmarks.landmark[tip].y < hand_landmarks.landmark[tip - 2].y:
-            fingers.append(1)
-        else:
-            fingers.append(0)
-    return fingers
+# ...existing code...
+detector = FER()
+# ...existing code...
 
 while True:
-    success, img = cap.read()
-    img = cv2.flip(img, 1)
-    img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    results = hands.process(img_rgb)
+    ret, frame = cap.read()
+    if not ret:
+        break
+    gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+    faces = face_cascade.detectMultiScale(gray, 1.3, 5)
 
-    if results.multi_hand_landmarks:
-        for hand_landmarks in results.multi_hand_landmarks:
-            mp_draw.draw_landmarks(img, hand_landmarks, mp_hands.HAND_CONNECTIONS)
-            # Index finger tip
-            x = int(hand_landmarks.landmark[8].x * img.shape[1])
-            y = int(hand_landmarks.landmark[8].y * img.shape[0])
-            # Thumb tip
-            thumb_x = int(hand_landmarks.landmark[4].x * img.shape[1])
-            thumb_y = int(hand_landmarks.landmark[4].y * img.shape[0])
+    for (x, y, w, h) in faces:
+        cv2.rectangle(frame, (x, y), (x+w, y+h), (255, 0, 0), 2)
+        # Placeholder for expression recognition
+        expression = "Face Detected"
+        cv2.putText(frame, expression, (x, y-10), cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0,255,0), 2)
 
-            # Move cursor
-            screen_x = int(hand_landmarks.landmark[8].x * screen_width)
-            screen_y = int(hand_landmarks.landmark[8].y * screen_height)
-            pyautogui.moveTo(screen_x, screen_y)
-
-            # Click gesture (thumb + index)
-            distance = math.hypot(x - thumb_x, y - thumb_y)
-            if distance < 40 and not click_down:
-                pyautogui.click()
-                click_down = True
-                cv2.putText(img, "Click!", (x, y-30), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,0,255), 2)
-            elif distance >= 40:
-                click_down = False
-
-            # Middle finger up gesture to open YouTube song
-            fingers = fingers_up(hand_landmarks)
-            # Only middle finger up: [0,1,0,0]
-            if fingers == [0,1,0,0] and not vscode_opened:
-                subprocess.Popen(r'start https://www.youtube.com/watch?v=bPk9bSvQQoc', shell=True)
-                vscode_opened = True
-                cv2.putText(img, "YouTube Song Opened!", (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2)
-            elif fingers != [0,1,0,0]:
-                vscode_opened = False
-
-    cv2.imshow("Hand Tracking", img)
+    cv2.imshow('Face Expression Recognizer', frame)
     if cv2.waitKey(1) & 0xFF == 27:
         break
-
-cap.release()
+     # Facial expression recognition
+    emotion, score = None, None
+    try:
+        result = detector.top_emotion(frame)
+        if result:
+            emotion, score = result
+            cv2.putText(frame, f"Emotion: {emotion} ({score:.2f})", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
+    except Exception as e:
+        result = detector.top_emotion(frame)
+        if result:
+            emotion, score = result
+            cv2.putText(frame, f"Emotion: {emotion} ({score:.2f})", (10, 40), cv2.FONT_HERSHEY_SIMPLEX, 1, (0,255,255), 2)
+# cv2.destroyAllWindows()
 cv2.destroyAllWindows()
