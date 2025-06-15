@@ -10,7 +10,7 @@ mp_hands = mp.solutions.hands
 
 cap = cv2.VideoCapture(0)
 
-middle_confirmed = False
+middle_confirmed = False  
 
 with mp_hands.Hands(
     model_complexity = 1,
